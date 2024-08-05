@@ -1,0 +1,11 @@
+.vs*
+build
+assets
+builtin_assets
+preproc/*
+.cache*
+.idea*
+imgui.ini
+compile_commands.json
+spv/
+spv_raw/
