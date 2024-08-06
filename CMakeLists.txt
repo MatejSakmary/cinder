@@ -18,9 +18,11 @@ add_executable(${PROJECT_NAME}
     "src/application.cpp"
     "src/window.cpp"
     "src/gpu_context.cpp"
+    "src/camera.cpp"
     "src/multithreading/thread_pool.cpp"
     "src/scene/scene.cpp"
     "src/scene/asset_processor.cpp"
+    "src/rendering/renderer.cpp"
 )
 find_package(fmt CONFIG REQUIRED)
 find_package(daxa CONFIG REQUIRED)

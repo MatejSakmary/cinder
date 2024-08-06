@@ -101,6 +101,7 @@ enum struct EntityType
 struct RenderEntity
 {
     glm::mat4x3 transform = {};
+    glm::mat4x3 combined_transform = {};
     std::optional<RenderEntityId> first_child = {};
     std::optional<RenderEntityId> next_sibling = {};
     std::optional<RenderEntityId> parent = {};
@@ -171,8 +172,7 @@ struct Scene
      * - the cpu and gpu versions of the manifest will be different to reduce indirections on the gpu
      * - TODO: Make the task buffers real buffers grow with time, unfix their size!
      * */
-    daxa::TaskTlas gpu_tlas = {};
-    daxa::TaskBlas gpu_blas = {};
+    daxa::TlasId gpu_tlas = {};
     static constexpr u32 scratch_buffer_size = 8'000'000;
     daxa::TaskBuffer gpu_scratch_buffer = {};
 
@@ -231,7 +231,7 @@ struct Scene
     };
     auto record_gpu_manifest_update(RecordGPUManifestUpdateInfo const & info) -> daxa::ExecutableCommandList;
 
-    auto create_and_record_build_blases() -> daxa::ExecutableCommandList;
+    auto create_and_record_build_as() -> daxa::ExecutableCommandList;
 
     daxa::Device _device = {};
 };

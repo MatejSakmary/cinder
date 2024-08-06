@@ -633,7 +633,7 @@ auto Scene::record_gpu_manifest_update(RecordGPUManifestUpdateInfo const & info)
      * - write compute shader that reads both arrays, they then write the updates from staging to entity arrays
      */
     /// NOTE: Update dirty entities.
-    auto update_entity = [&](i32 i, RenderEntity const * entity, u32 entity_index) -> glm::mat4
+    auto update_entity = [&](i32 i, RenderEntity * entity, u32 entity_index) -> glm::mat4
     {
         usize offset = (staging_offset + (sizeof(glm::mat4x3) * 2 + sizeof(u32)) * i);
         glm::mat4 transform4 = glm::mat4(
@@ -662,6 +662,7 @@ auto Scene::record_gpu_manifest_update(RecordGPUManifestUpdateInfo const & info)
             glm::mat4x3 combined_transform;
             u32 mesh_group_manifest_index;
         };
+        entity->combined_transform = combined_transform4;
         *r_cast<RenderEntityUpdateStagingMemoryView *>(host_ptr + offset) = {
             .transform = transform4,
             .combined_transform = combined_transform4,
@@ -996,7 +997,7 @@ auto Scene::record_gpu_manifest_update(RecordGPUManifestUpdateInfo const & info)
     return recorder.complete_current_commands();
 }
 
-auto Scene::create_and_record_build_blases() -> daxa::ExecutableCommandList
+auto Scene::create_and_record_build_as() -> daxa::ExecutableCommandList
 {
     auto get_aligned = [&](u64 to_align, u64 alignment) -> u64
     {
@@ -1020,7 +1021,7 @@ auto Scene::create_and_record_build_blases() -> daxa::ExecutableCommandList
         auto & meshgroup = mesh_group_manifest.at(meshgroup_index);
 
         DBG_ASSERT_TRUE_M(meshgroup.loaded_meshes == meshgroup.mesh_count, 
-            "[ERROR][Scene::create_and_record_build_blases] Attempting to build a BLAS on a partially loaded meshgroup");
+            "[ERROR][Scene::create_and_record_build_as()] Attempting to build a BLAS on a partially loaded meshgroup");
 
         auto & geometries = build_geometries.emplace_back();
         geometries.reserve(meshgroup.mesh_count);
@@ -1048,7 +1049,7 @@ auto Scene::create_and_record_build_blases() -> daxa::ExecutableCommandList
         auto const build_size_info = _device.get_blas_build_sizes(blas_build_info);
         u64 aligned_scratch_size = get_aligned(build_size_info.build_scratch_size, scratch_buffer_offset_alignment);
         DBG_ASSERT_TRUE_M(aligned_scratch_size < scratch_buffer_size, 
-            "[ERROR][Scene::create_and_record_build_blases] Meshgroup too big for the scratch buffer - increase scratchbuffer size");
+            "[ERROR][Scene::create_and_record_build_as()] Meshgroup too big for the scratch buffer - increase scratchbuffer size");
 
         if(current_scratch_buffer_offset + aligned_scratch_size > scratch_buffer_size)
         {
@@ -1074,8 +1075,87 @@ auto Scene::create_and_record_build_blases() -> daxa::ExecutableCommandList
     auto recorder = _device.create_command_recorder({});
     if(!build_infos.empty())
     {
-        DEBUG_MSG(fmt::format("[DEBUG][Scene::create_and_record_blases()] Building {} blases this frame", build_infos.size()));
+        DEBUG_MSG(fmt::format("[DEBUG][Scene::create_and_record_build_as()] Building {} blases this frame", build_infos.size()));
         recorder.build_acceleration_structures({.blas_build_infos = {build_infos.data(), build_infos.size()}});
     }
+    recorder.pipeline_barrier({
+        .src_access = daxa::AccessConsts::ACCELERATION_STRUCTURE_BUILD_WRITE,
+        .dst_access = daxa::AccessConsts::ACCELERATION_STRUCTURE_BUILD_READ
+    });
+
+    std::vector<daxa_BlasInstanceData> blas_instances = {};
+    for (u32 entity_i = 0; entity_i < _render_entities.capacity(); ++entity_i)
+    {
+        RenderEntity const * r_ent = _render_entities.slot_by_index(entity_i);
+        if(r_ent != nullptr && r_ent->mesh_group_manifest_index.has_value())
+        {
+            MeshGroupManifestEntry const & m_entry = mesh_group_manifest.at(r_ent->mesh_group_manifest_index.value());
+            if(!m_entry.blas.has_value())
+            {
+                continue;
+            }
+
+            auto const t = r_ent->combined_transform;
+            blas_instances.push_back(daxa_BlasInstanceData{
+                .transform = {
+                    {t[0][0], t[1][0], t[2][0], t[3][0]},
+                    {t[0][1], t[1][1], t[2][1], t[3][1]},
+                    {t[0][2], t[1][2], t[2][2], t[3][2]},
+                },
+                .mask = 0xFF,
+                .instance_shader_binding_table_record_offset = 1,
+                .blas_device_address = _device.get_device_address(m_entry.blas.value()).value(),
+            });
+        }
+    }
+
+    auto blas_instances_buffer = _device.create_buffer({
+        .size = sizeof(daxa_BlasInstanceData) * blas_instances.size(),
+        .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+        .name = "blas instances buffer"
+    });
+    recorder.destroy_buffer_deferred(blas_instances_buffer);
+
+    std::memcpy(_device.get_host_address_as<daxa_BlasInstanceData>(blas_instances_buffer).value(),
+                blas_instances.data(),
+                blas_instances.size() * sizeof(daxa_BlasInstanceData));
+
+    auto tlas_blas_instances_info = daxa::TlasInstanceInfo{
+            .data = _device.get_device_address(blas_instances_buffer).value(),
+            .count = s_cast<u32>(blas_instances.size()),
+            .is_data_array_of_pointers = false,
+            .flags = daxa::GeometryFlagBits::OPAQUE
+    };
+
+    auto tlas_build_info = daxa::TlasBuildInfo{
+        .flags = daxa::AccelerationStructureBuildFlagBits::PREFER_FAST_TRACE,
+        .instances = std::array{tlas_blas_instances_info},
+    };
+
+    daxa::AccelerationStructureBuildSizesInfo const tlas_build_sizes = _device.get_tlas_build_sizes(tlas_build_info);
+
+    if(_device.is_id_valid(gpu_tlas)) {
+        _device.destroy_tlas(gpu_tlas);
+    }
+
+    gpu_tlas = _device.create_tlas({
+        .size = tlas_build_sizes.acceleration_structure_size,
+        .name = "scene tlas",
+    });
+
+    DBG_ASSERT_TRUE_M(tlas_build_sizes.build_scratch_size < scratch_buffer_size, 
+        "[ERROR][Scene::create_and_record_build_as] Tlas too big for scratch buffer - create bigger scratch buffer");
+
+    tlas_build_info.dst_tlas = gpu_tlas;
+    tlas_build_info.scratch_data = scratch_device_address;
+
+    recorder.build_acceleration_structures({
+        .tlas_build_infos = std::array{tlas_build_info}
+    });
+    recorder.pipeline_barrier({
+        .src_access = daxa::AccessConsts::ACCELERATION_STRUCTURE_BUILD_READ_WRITE,
+        .dst_access = daxa::AccessConsts::READ_WRITE
+    });
+
     return recorder.complete_current_commands();
 }

@@ -7,6 +7,11 @@ Application::Application()
     gpu_context = std::make_unique<GPUContext>(*window);
     scene = std::make_unique<Scene>(gpu_context->device);
     asset_processor = std::make_unique<AssetProcessor>(gpu_context->device);
+    renderer = std::make_unique<Renderer>(CreateRendererInfo{
+        .window = window.get(),
+        .context = gpu_context.get(),
+        .scene = scene.get(),
+    });
 
     std::filesystem::path const DEFAULT_HARDCODED_PATH = "./assets";
     std::filesystem::path const DEFAULT_HARDCODED_FILE = "caldera/hotel/hotel.gltf";
@@ -66,7 +71,7 @@ void Application::update()
         .uploaded_meshes = asset_data_upload_info.uploaded_meshes,
         .uploaded_textures = asset_data_upload_info.uploaded_textures
     });
-    auto build_blas_commands = scene->create_and_record_build_blases();
+    auto build_blas_commands = scene->create_and_record_build_as();
 
     auto cmd_lists = std::array{
         std::move(asset_data_upload_info.upload_commands),
@@ -75,6 +80,7 @@ void Application::update()
     };
 
     gpu_context->device.submit_commands({.command_lists = cmd_lists});
+    renderer->render_frame();
 }
 
 Application::~Application()
