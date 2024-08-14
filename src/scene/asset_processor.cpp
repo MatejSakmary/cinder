@@ -65,7 +65,7 @@ static auto raw_image_data_from_URI(RawImageDataFromURIInfo const & info) -> Raw
         return AssetProcessor::AssetLoadResultCode::ERROR_URI_FILE_OFFSET_NOT_SUPPORTED;
     }
     std::filesystem::path const full_image_path = info.scene_dir_path / info.uri.uri.fspath();
-    DEBUG_MSG(fmt::format("[AssetProcessor::raw_image_data_from_URI] Loading image {} ...", full_image_path.string()));
+    DEBUG_MESSAGE(fmt::format("[AssetProcessor::raw_image_data_from_URI] Loading image {} ...", full_image_path.string()));
     RawDataRet raw_image_data_ret = raw_image_data_from_path(full_image_path);
     if (std::holds_alternative<AssetProcessor::AssetLoadResultCode>(raw_image_data_ret))
     {

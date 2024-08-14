@@ -62,6 +62,11 @@ Scene::~Scene()
             _device.destroy_image(std::bit_cast<daxa::ImageId>(texture.secondary_runtime_texture.value()));
         }
     }
+
+    if(_device.is_id_valid(gpu_tlas))
+    {
+        _device.destroy_tlas(gpu_tlas);
+    }
 }
 // TODO: Loading god function.
 struct LoadManifestFromFileContext
@@ -197,7 +202,7 @@ static void update_texture_manifest_from_gltf(Scene & scene, Scene::LoadManifest
                 "[ERROR] Texture \"{}\" has no supported gltf image index!\n",
                 load_ctx.asset.textures[i].name.c_str()));
         u32 gltf_image_index = gltf_image_idx_opt.value();
-        DEBUG_MSG(
+        DEBUG_MESSAGE(
             fmt::format("[INFO] Loading texture meta data into manifest:\n  name: {}\n  asset local index: {}\n  manifest index:  {}",
                 load_ctx.asset.images[gltf_image_index].name, i, texture_manifest_index));
         // KTX_TTF_BC7_RGBA
@@ -477,12 +482,12 @@ static void start_async_loads_of_dirty_meshes(Scene & scene, Scene::LoadManifest
             auto const ret_status = info.asset_processor->load_mesh(info.load_info);
             if (ret_status != AssetProcessor::AssetLoadResultCode::SUCCESS)
             {
-                DEBUG_MSG(fmt::format("[ERROR]Failed to load mesh group {} mesh {} - error {}",
+                DEBUG_MESSAGE(fmt::format("[ERROR]Failed to load mesh group {} mesh {} - error {}",
                     info.load_info.gltf_mesh_index, info.load_info.gltf_primitive_index, AssetProcessor::to_string(ret_status)));
             }
             else
             {
-                // DEBUG_MSG(fmt::format("[SUCCESS] Successfuly loaded mesh group {} mesh {}",
+                // DEBUG_MESSAGE(fmt::format("[SUCCESS] Successfuly loaded mesh group {} mesh {}",
                 //     info.load_info.gltf_mesh_index, info.load_info.gltf_primitive_index));
             }
         };
@@ -536,12 +541,12 @@ static void start_async_loads_of_dirty_textures(Scene & scene, Scene::LoadManife
             auto const texture_name = info.load_info.asset->images.at(info.load_info.gltf_image_index).name;
             if (ret_status != AssetProcessor::AssetLoadResultCode::SUCCESS)
             {
-                DEBUG_MSG(fmt::format("[ERROR] Failed to load texture index {} name {} - error {}",
+                DEBUG_MESSAGE(fmt::format("[ERROR] Failed to load texture index {} name {} - error {}",
                     info.load_info.gltf_texture_index, texture_name, AssetProcessor::to_string(ret_status)));
             }
             else
             {
-                // DEBUG_MSG(fmt::format("[SUCCESS] Successfuly loaded texture index {} name {}",
+                // DEBUG_MESSAGE(fmt::format("[SUCCESS] Successfuly loaded texture index {} name {}",
                 //     info.load_info.gltf_texture_index, texture_name));
             }
         };
@@ -595,7 +600,7 @@ static void start_async_loads_of_dirty_textures(Scene & scene, Scene::LoadManife
         }
         else
         {
-            DEBUG_MSG(
+            DEBUG_MESSAGE(
                 fmt::format("[WARNING] Texture \"{}\" can not be loaded because it is not referenced by any material", texture_manifest_entry.name));
         }
     }
@@ -967,7 +972,7 @@ auto Scene::record_gpu_manifest_update(RecordGPUManifestUpdateInfo const & info)
                 {
                     std::lock_guard<std::mutex>meshgroup_lock(*meshgroup_mutex);
                     meshgroup.loaded_meshes += 1;
-                    if(meshgroup.loaded_meshes == meshgroup.mesh_count)
+                    if( meshgroup.loaded_meshes == meshgroup.mesh_count) 
                     {
                         loaded_meshgroup_queue.push_back(meshgroup_index);
                     }
@@ -1075,7 +1080,7 @@ auto Scene::create_and_record_build_as() -> daxa::ExecutableCommandList
     auto recorder = _device.create_command_recorder({});
     if(!build_infos.empty())
     {
-        DEBUG_MSG(fmt::format("[DEBUG][Scene::create_and_record_build_as()] Building {} blases this frame", build_infos.size()));
+        DEBUG_MESSAGE(fmt::format("[DEBUG][Scene::create_and_record_build_as()] Building {} blases this frame", build_infos.size()));
         recorder.build_acceleration_structures({.blas_build_infos = {build_infos.data(), build_infos.size()}});
     }
     recorder.pipeline_barrier({
@@ -1103,7 +1108,7 @@ auto Scene::create_and_record_build_as() -> daxa::ExecutableCommandList
                     {t[0][2], t[1][2], t[2][2], t[3][2]},
                 },
                 .mask = 0xFF,
-                .instance_shader_binding_table_record_offset = 1,
+                .instance_shader_binding_table_record_offset = 0,
                 .blas_device_address = _device.get_device_address(m_entry.blas.value()).value(),
             });
         }

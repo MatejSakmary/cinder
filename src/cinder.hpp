@@ -105,9 +105,10 @@ namespace cinder
 #define d_cast dynamic_cast
 #define r_cast reinterpret_cast
 
+#define MESSAGE(M) fmt::println("{}", M);
 #ifdef _DEBUG
 #include <fmt/format.h>
-#define DEBUG_MSG(M) fmt::println("{}", M);
+#define DEBUG_MESSAGE(M) fmt::println("{}", M);
 #define DBG_ASSERT_TRUE_M(X, M)                                                                                        \
     [&]                                                                                                                \
     {                                                                                                                  \
@@ -118,7 +119,7 @@ namespace cinder
         }                                                                                                              \
     }()
 #else
-#define DEBUG_MSG(M)
+#define DEBUG_MESSAGE(M)
 #define DBG_ASSERT_TRUE_M(X, M)
 #endif
 

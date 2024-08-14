@@ -13,7 +13,7 @@ using namespace cinder::types;
 struct CameraController
 {
     void process_input(Window &window, f32 dt);
-    auto make_camera_info(u32vec2 const render_target_size) const -> CameraInfo;
+    auto get_camera_data(u32vec2 const render_target_size) const -> CameraData;
 
     bool bZoom = false;
     f32 fov = 70.0f;

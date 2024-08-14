@@ -9,9 +9,11 @@ Application::Application()
     asset_processor = std::make_unique<AssetProcessor>(gpu_context->device);
     renderer = std::make_unique<Renderer>(CreateRendererInfo{
         .window = window.get(),
-        .context = gpu_context.get(),
+        .gpu_context = gpu_context.get(),
         .scene = scene.get(),
     });
+
+    renderer->compile_pipelines();
 
     std::filesystem::path const DEFAULT_HARDCODED_PATH = "./assets";
     std::filesystem::path const DEFAULT_HARDCODED_FILE = "caldera/hotel/hotel.gltf";
@@ -24,11 +26,11 @@ Application::Application()
     });
 
     if(Scene::LoadManifestErrorCode const * err = std::get_if<Scene::LoadManifestErrorCode>(&result)) {
-        DEBUG_MSG(fmt::format("[WARN][Application::Application()] Loading \"{}\" Error {}",
+        DEBUG_MESSAGE(fmt::format("[WARN][Application::Application()] Loading \"{}\" Error {}",
             (DEFAULT_HARDCODED_PATH / DEFAULT_HARDCODED_FILE).string(), Scene::to_string(*err)));
     } 
     else {
-        DEBUG_MSG(fmt::format("[Info][Application::Application()] Loading \"{}\" Success",
+        DEBUG_MESSAGE(fmt::format("[Info][Application::Application()] Loading \"{}\" Success",
             (DEFAULT_HARDCODED_PATH / DEFAULT_HARDCODED_FILE).string()));
     }
     last_time_point = std::chrono::steady_clock::now();
@@ -79,8 +81,18 @@ void Application::update()
         std::move(build_blas_commands)
     };
 
+    camera_controller.process_input(*window, delta_time);
+
     gpu_context->device.submit_commands({.command_lists = cmd_lists});
-    renderer->render_frame();
+    auto const swapchain_resolution = u32vec2(
+        gpu_context->swapchain.get_surface_extent().x, 
+        gpu_context->swapchain.get_surface_extent().y
+    );
+    renderer->render_frame({
+        .camera_info = camera_controller.get_camera_data(swapchain_resolution),
+        .delta_time = delta_time,
+        .scene_tlas = scene->gpu_tlas,
+    });
 }
 
 Application::~Application()

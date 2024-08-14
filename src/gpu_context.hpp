@@ -18,6 +18,7 @@ struct GPUContext
     // Pipelines:
     std::unordered_map<std::string, std::shared_ptr<daxa::RasterPipeline>> raster_pipelines = {};
     std::unordered_map<std::string, std::shared_ptr<daxa::ComputePipeline>> compute_pipelines = {};
+    std::unordered_map<std::string, std::shared_ptr<daxa::RayTracingPipeline>> raytracing_pipelines = {};
 
     u32 counter = {};
     auto dummy_string() -> std::string;

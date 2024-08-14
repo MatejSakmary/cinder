@@ -44,7 +44,7 @@ void CameraController::process_input(Window & window, f32 dt)
     forward.z = -glm::sin(glm::radians(pitch));
 }
 
-auto CameraController::make_camera_info(u32vec2 const render_target_size) const -> CameraInfo
+auto CameraController::get_camera_data(u32vec2 const render_target_size) const -> CameraData
 {
     auto fov = this->fov;
     if (bZoom) { fov *= 0.25f; }
@@ -65,17 +65,17 @@ auto CameraController::make_camera_info(u32vec2 const render_target_size) const 
     glm::mat4 prespective =
         inf_depth_reverse_z_perspective(glm::radians(fov), f32(render_target_size.x) / f32(render_target_size.y), near);
     prespective[1][1] *= -1.0f;
-    CameraInfo ret = {};
-    ret.proj = prespective;
-    ret.inv_proj = glm::inverse(prespective);
-    ret.view = glm::lookAt(position, position + forward, up);
-    ret.inv_view = glm::inverse(ret.view);
-    ret.view_proj = ret.proj * ret.view;
-    ret.inv_view_proj = glm::inverse(ret.view_proj);
+    CameraData ret = {};
+    ret.view_to_clip = prespective;
+    ret.clip_to_view = glm::inverse(prespective);
+    ret.world_to_view = glm::lookAt(position, position + forward, up);
+    ret.view_to_world = glm::inverse(ret.world_to_view);
+    ret.world_to_clip = ret.view_to_clip * ret.world_to_view;
+    ret.clip_to_world = glm::inverse(ret.world_to_clip);
     ret.position = this->position;
     ret.up = this->up;
     glm::vec3 ws_ndc_corners[2][2][2];
-    glm::mat4 inv_view_proj = glm::inverse(ret.proj * ret.view);
+    glm::mat4 inv_view_proj = glm::inverse(ret.view_to_clip * ret.world_to_view);
     for (u32 z = 0; z < 2; ++z)
     {
         for (u32 y = 0; y < 2; ++y)

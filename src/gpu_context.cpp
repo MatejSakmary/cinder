@@ -17,12 +17,22 @@ using HWND = void *;
 #endif
 
 GPUContext::GPUContext(Window const & window)
-    : context{daxa::create_instance({})}, device{this->context.create_device({
-          .flags = daxa::DeviceFlags2{ .mesh_shader_bit = 1, .ray_tracing = 1},
-          .max_allowed_images = 100000, 
-          .max_allowed_buffers = 100000,
-          .name = "Cinder Device"
-      })},
+    : context{daxa::create_instance({})},
+        device{[&](){
+            auto device_info = daxa::DeviceInfo2 {
+                .explicit_features = daxa::ExplicitFeatureFlagBits::BUFFER_DEVICE_ADDRESS_CAPTURE_REPLAY,
+                .max_allowed_images = 100'000,
+                .max_allowed_buffers = 100'000,
+                .name = "Cinder Device",
+            };
+            auto const implicit_flags = 
+                daxa::ImplicitFeatureFlagBits::RAY_TRACING_PIPELINE |
+                daxa::ImplicitFeatureFlagBits::BASIC_RAY_TRACING |
+                daxa::ImplicitFeatureFlagBits::MESH_SHADER;
+            context.choose_device(implicit_flags, device_info);
+            return context.create_device_2(device_info);
+        }()
+      },
       swapchain{this->device.create_swapchain({
           .native_window = glfwGetWin32Window(window.glfw_handle),
           .native_window_platform = daxa::NativeWindowPlatform::WIN32_API,
@@ -49,12 +59,13 @@ GPUContext::GPUContext(Window const & window)
                   .root_paths =
                       {
                           "./src",
+                          "./src/rendering/tasks",
                           DAXA_SHADER_INCLUDE_DIR,
                       },
                   .write_out_preprocessed_code = "./preproc",
                   .write_out_shader_binary = "./spv_raw",
-                  .spirv_cache_folder = "spv",
-                  .language = daxa::ShaderLanguage::GLSL,
+                //   .spirv_cache_folder = "spv",
+                  .language = daxa::ShaderLanguage::SLANG,
                   .enable_debug_info = true,
               };
           }(),
