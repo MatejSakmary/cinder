@@ -33,10 +33,16 @@ void ray_gen()
     RWTexture2D<float>::get(push.swapchain_image)[thread_idx] = payload.color;
 }
 
+float3 hsv2rgb(float3 c) {
+    float4 k = float4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    float3 p = abs(frac(c.xxx + k.xyz) * 6.0 - k.www);
+    return c.z * lerp(k.xxx, clamp(p - k.xxx, 0.0, 1.0), c.y);
+}
+
 [shader("closesthit")]
 void closest_hit_shader(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr)
 {
-    float3 hit_location = WorldRayOrigin() + WorldRayDirection() * RayTCurrent();
+    const float3 hit_location = WorldRayOrigin() + WorldRayDirection() * RayTCurrent();
 
     RayDesc ray;
     ray.Origin = hit_location;
@@ -48,10 +54,35 @@ void closest_hit_shader(inout RayPayload payload, in BuiltInTriangleIntersection
     TraceRay(RaytracingAccelerationStructure::get(push.scene_tlas), RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH, ~0, 1, 0, 0, ray, shadow_payload);
     float shadow = 1.0f - shadow_payload.color.x;
 
-    let flat_color = float4(1.0f);
-    payload.color = float4(flat_color * shadow);
+    const uint custom_instance_index = InstanceID();
+    const uint geometry_index = GeometryIndex();
     
-    // payload.color = float4(1.0, 0.0, 0.0, 1.0);
+    const GPUMeshGroup *mesh_group = &push.gpu_mesh_group_manifest[custom_instance_index];
+    const uint mesh_index = mesh_group->mesh_indices[geometry_index];
+    const GPUMesh *mesh = &push.gpu_mesh_manifest[mesh_index];
+
+    const uint index_buffer_offset = PrimitiveIndex() * 3;
+
+    const uint vertex_index_0 = mesh.indices[index_buffer_offset];
+    const uint vertex_index_1 = mesh.indices[index_buffer_offset + 1];
+    const uint vertex_index_2 = mesh.indices[index_buffer_offset + 2];
+
+    // const float2 uv_0 = mesh.vertex_uvs[vertex_index_0];
+    // const float2 uv_1 = mesh.vertex_uvs[vertex_index_1];
+    // const float2 uv_2 = mesh.vertex_uvs[vertex_index_2];
+    // const float2 interp_uv = uv_0 + attr.barycentrics.x * (uv_1 - uv_0) + attr.barycentrics.y* (uv_2 - uv_0);
+
+    const float3 flat_normal_0 = mesh.vertex_normals[vertex_index_0];
+    const float3 flat_normal_1 = mesh.vertex_normals[vertex_index_1];
+    const float3 flat_normal_2 = mesh.vertex_normals[vertex_index_2];
+    const float3 normal = flat_normal_0 + attr.barycentrics.x * (flat_normal_1 - flat_normal_0) + attr.barycentrics.y* (flat_normal_2 - flat_normal_0);
+
+    const float ndotl = max(0.0f, shadow * dot(normal, ray.Direction.xyz));
+    const float intensity = ndotl * 0.9f + 0.1f;
+    const float3 color = float3(1.0f);
+    // color.rgb = hsv2rgb(float3(float(custom_instance_index + index_buffer_offset) * 0.1323f, 1, 1));
+
+    payload.color = float4(color * intensity, 1.0f);
 }
 
 [shader("closesthit")]

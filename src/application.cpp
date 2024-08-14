@@ -16,7 +16,8 @@ Application::Application()
     renderer->compile_pipelines();
 
     std::filesystem::path const DEFAULT_HARDCODED_PATH = "./assets";
-    std::filesystem::path const DEFAULT_HARDCODED_FILE = "caldera/hotel/hotel.gltf";
+    // std::filesystem::path const DEFAULT_HARDCODED_FILE = "caldera/hotel/hotel.gltf";
+    std::filesystem::path const DEFAULT_HARDCODED_FILE = "bistro_compressed/bistro_c.gltf";
 
     auto const result = scene->load_manifest_from_gltf({
         .root_path = DEFAULT_HARDCODED_PATH,

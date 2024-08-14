@@ -710,7 +710,7 @@ auto Scene::record_gpu_manifest_update(RecordGPUManifestUpdateInfo const & info)
     {
         if (!gpu_mesh_group_indices_array_buffer.is_empty())
         {
-            recorder.destroy_buffer_deferred(gpu_mesh_group_indices_array_buffer);
+            _device.destroy_buffer(gpu_mesh_group_indices_array_buffer);
         }
         usize mesh_group_indices_mem_size = sizeof(daxa_u32) * mesh_manifest_indices_new.size();
         gpu_mesh_group_indices_array_buffer = _device.create_buffer({
@@ -724,7 +724,7 @@ auto Scene::record_gpu_manifest_update(RecordGPUManifestUpdateInfo const & info)
         });
         recorder.destroy_buffer_deferred(mesh_groups_indices_staging);
         u32 * indices_staging_ptr = _device.get_host_address_as<u32>(mesh_groups_indices_staging).value();
-        std::memcpy(indices_staging_ptr, mesh_manifest_indices_new.data(), mesh_manifest_indices_new.size());
+        std::memcpy(indices_staging_ptr, mesh_manifest_indices_new.data(), mesh_manifest_indices_new.size() * sizeof(u32));
         recorder.copy_buffer_to_buffer({
             .src_buffer = mesh_groups_indices_staging,
             .dst_buffer = gpu_mesh_group_indices_array_buffer,
@@ -1107,6 +1107,7 @@ auto Scene::create_and_record_build_as() -> daxa::ExecutableCommandList
                     {t[0][1], t[1][1], t[2][1], t[3][1]},
                     {t[0][2], t[1][2], t[2][2], t[3][2]},
                 },
+                .instance_custom_index = r_ent->mesh_group_manifest_index.value(),
                 .mask = 0xFF,
                 .instance_shader_binding_table_record_offset = 0,
                 .blas_device_address = _device.get_device_address(m_entry.blas.value()).value(),

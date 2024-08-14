@@ -45,7 +45,7 @@ GPUContext::GPUContext(Window const & window)
                   default:                           return 0;
               }
           },
-          .present_mode = daxa::PresentMode::IMMEDIATE,
+          .present_mode = daxa::PresentMode::FIFO,
           .image_usage = daxa::ImageUsageFlagBits::SHADER_STORAGE | daxa::ImageUsageFlagBits::TRANSFER_DST,
           .name = "Cinder Swapchain",
       })},

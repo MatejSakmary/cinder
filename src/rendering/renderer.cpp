@@ -74,6 +74,8 @@ auto Renderer::create_main_task_graph() -> daxa::TaskGraph
     global_data_cpu = std::make_unique<GlobalData>();
     task_graph.use_persistent_image(swapchain_image);
     task_graph.use_persistent_tlas(scene_tlas);
+    task_graph.use_persistent_buffer(scene->gpu_mesh_group_manifest);
+    task_graph.use_persistent_buffer(scene->gpu_mesh_manifest);
 
     task_graph.add_task({
         .attachments = {daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, globals_gpu_buffer)},
@@ -98,6 +100,8 @@ auto Renderer::create_main_task_graph() -> daxa::TaskGraph
         .views = std::array{
             daxa::attachment_view(BasicRaytraceH::AT.globals, globals_gpu_buffer),
             daxa::attachment_view(BasicRaytraceH::AT.scene_tlas, scene_tlas),
+            daxa::attachment_view(BasicRaytraceH::AT.gpu_mesh_group_manifest, scene->gpu_mesh_group_manifest),
+            daxa::attachment_view(BasicRaytraceH::AT.gpu_mesh_manifest, scene->gpu_mesh_manifest),
             daxa::attachment_view(BasicRaytraceH::AT.swapchain_image, swapchain_image),
         },
         .gpu_context = gpu_context,

@@ -6,9 +6,12 @@
 #include <daxa/utils/task_graph.inl>
 
 #include "../../shader_shared/shared.inl" // IWYU pragma: export
+#include "../../shader_shared/geometry.inl" // IWYU pragma: export
 
 DAXA_DECL_TASK_HEAD_BEGIN(BasicRaytraceH)
 DAXA_TH_BUFFER_PTR(RAY_TRACING_SHADER_READ, daxa_BufferPtr(GlobalData), globals)
+DAXA_TH_BUFFER_PTR(RAY_TRACING_SHADER_READ, daxa_BufferPtr(GPUMeshGroup), gpu_mesh_group_manifest)
+DAXA_TH_BUFFER_PTR(RAY_TRACING_SHADER_READ, daxa_BufferPtr(GPUMesh), gpu_mesh_manifest)
 DAXA_TH_TLAS_ID(RAY_TRACING_SHADER_READ, scene_tlas)
 DAXA_TH_IMAGE_ID(RAY_TRACING_SHADER_STORAGE_WRITE_ONLY, REGULAR_2D, swapchain_image)
 DAXA_DECL_TASK_HEAD_END
